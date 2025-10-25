@@ -1,0 +1,18 @@
+# Phase 1 - No external dependencies required
+# All functionality uses Python standard library only
+
+# Python 3.7+ required
+# Standard libraries used:
+# - pathlib
+# - shutil
+# - os
+# - logging
+# - datetime
+# - typing
+# - argparse
+
+# Future phases may add:
+# - colorama (for colored terminal output)
+# - tqdm (for progress bars)
+# - pyyaml (for configuration files)
+# - pillow (for image analysis)
