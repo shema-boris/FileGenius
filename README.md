@@ -4,7 +4,7 @@ A privacy-first file organization tool that runs entirely on your local machine.
 
 ## 🎯 Project Overview
 
-**Current Status:** Phase 1 Complete
+**Current Status:** Phase 2 Complete ✨
 
 FileGenius is a personal AI assistant that helps organize files on your local machine automatically. Built with privacy as the top priority, all operations run locally.
 
@@ -19,9 +19,9 @@ FileGenius is a personal AI assistant that helps organize files on your local ma
 
 ---
 
-## 📦 Phase 1 Features
+## 📦 Features
 
-✅ **Implemented:**
+### ✅ Phase 1 (Complete)
 - Organize files by type (images, documents, videos, audio, code, etc.)
 - Organize by creation date (year/month subfolders)
 - Dry-run mode to preview all changes
@@ -30,6 +30,15 @@ FileGenius is a personal AI assistant that helps organize files on your local ma
 - Command-line interface
 - Handles filename conflicts automatically
 - Recursive directory scanning
+
+### ✅ Phase 2 (Complete) - **NEW!**
+- **SQLite Database Tracking:** Every file operation is recorded with full metadata
+- **SHA-256 Hashing:** Compute and store file hashes for integrity verification
+- **Duplicate Detection:** Identify duplicate files across your system
+- **Duplicate Removal:** Optionally delete duplicate files (with confirmation)
+- **Undo Capability:** Revert the last organization operation safely
+- **Database Statistics:** View insights about your organized files
+- **Backward Compatible:** Can disable database features for Phase 1 behavior
 
 ---
 
@@ -56,19 +65,29 @@ cd FileCleaner
 python file_organizer.py /path/to/your/folder --dry-run
 ```
 
-**2. Actually organize files:**
+**2. Actually organize files (with database tracking):**
 ```bash
 python file_organizer.py /path/to/your/folder --no-dry-run
 ```
 
-**3. Organize without date subfolders:**
+**3. Check for duplicates (without removing):**
 ```bash
-python file_organizer.py /path/to/folder --no-dry-run --no-date
+python file_organizer.py /path/to/folder --no-dry-run --check-duplicates
 ```
 
-**4. Recursive scan (include subdirectories):**
+**4. Remove duplicate files:**
 ```bash
-python file_organizer.py /path/to/folder --recursive --dry-run
+python file_organizer.py /path/to/folder --no-dry-run --remove-duplicates
+```
+
+**5. Undo the last organization:**
+```bash
+python file_organizer.py --undo-last --no-dry-run
+```
+
+**6. View database statistics:**
+```bash
+python file_organizer.py --show-stats
 ```
 
 ---
@@ -139,7 +158,10 @@ organized/
 ## 🔧 Command-Line Options
 
 ```
-usage: file_organizer.py [-h] [-o OUTPUT] [--no-date] [-r] [--dry-run] [--no-dry-run] source
+usage: file_organizer.py [-h] [-o OUTPUT] [--no-date] [-r] [--dry-run] [--no-dry-run]
+                         [--no-database] [--check-duplicates] [--remove-duplicates]
+                         [--db-path DB_PATH] [--undo-last] [--show-stats]
+                         [source]
 
 positional arguments:
   source                Source directory to organize
@@ -152,6 +174,14 @@ optional arguments:
   -r, --recursive       Recursively scan subdirectories
   --dry-run             Preview changes without moving files (default: True)
   --no-dry-run          Actually move files (overrides --dry-run)
+
+Phase 2 Options:
+  --no-database         Disable database tracking (Phase 1 behavior)
+  --check-duplicates    Check for duplicate files using SHA-256 hashing
+  --remove-duplicates   Remove duplicate files (implies --check-duplicates)
+  --db-path DB_PATH     Path to SQLite database file (default: file_organizer.db)
+  --undo-last           Undo the last organization operation
+  --show-stats          Show database statistics
 ```
 
 ---
@@ -163,66 +193,132 @@ You can also use the organizer as a Python module:
 ```python
 from file_organizer import organize_files
 
-# Dry-run mode
+# Phase 1 style - no database
 stats = organize_files(
     source_directory='./my_messy_folder',
     output_directory='organized',
     organize_by_date=True,
     recursive=False,
-    dry_run=True
+    dry_run=True,
+    enable_database=False
 )
 
-print(f"Would move {stats['files_moved']} files")
-
-# Live mode (actually move files)
+# Phase 2 - with database and duplicate detection
 stats = organize_files(
     source_directory='./my_messy_folder',
     output_directory='organized',
     organize_by_date=True,
     recursive=False,
-    dry_run=False
+    dry_run=False,
+    enable_database=True,
+    check_duplicates=True,
+    remove_duplicates=False,
+    db_path='file_organizer.db'
 )
+
+print(f"Moved: {stats['files_moved']}, Duplicates: {stats['duplicates_found']}")
 ```
 
-See `example_usage.py` for more examples.
+### Database Module API
+
+```python
+import database_manager as db
+
+# Initialize database
+db.init_db('my_organizer.db')
+
+# Check for duplicates
+file_hash = db.compute_file_hash(Path('photo.jpg'))
+duplicate = db.get_duplicate(file_hash)
+
+# Undo last operation
+stats = db.undo_last_operation(dry_run=True)
+
+# Get statistics
+stats = db.get_database_stats()
+print(f"Total files: {stats['total_files']}")
+```
 
 ---
 
-## 📝 Logging
+## 📝 Logging & Database
+
+### Logging
 
 All operations are logged to `file_organizer.log` in the current directory. The log includes:
 
 - Timestamp of each operation
 - Files being moved (or would be moved in dry-run)
+- Duplicate detections
+- Database operations
 - Errors and permission issues
 - Summary statistics
-- Whether dry-run or live mode was used
 
 **Example log entry:**
 ```
-2024-10-25 11:30:45 - FileOrganizer - INFO - WOULD MOVE: /path/photo.jpg -> organized/images/2024/10/photo.jpg
+2024-10-25 11:30:45 - FileOrganizer - INFO - MOVING: /path/photo.jpg -> organized/images/2024/10/photo.jpg
+2024-10-25 11:30:45 - FileOrganizer - WARNING - DUPLICATE: photo_copy.jpg matches photo.jpg
 ```
+
+### Database Tracking
+
+Phase 2 stores all file operations in a SQLite database (`file_organizer.db`):
+
+**Database Schema:**
+- `id` - Auto-increment primary key
+- `original_path` - Where the file came from
+- `new_path` - Where the file was moved to
+- `file_name` - Name of the file
+- `file_size` - Size in bytes
+- `file_type` - Category (images, documents, etc.)
+- `created_at` - File creation timestamp
+- `modified_at` - File modification timestamp
+- `sha256_hash` - Unique file hash
+- `operation_date` - When the file was organized
+- `operation_id` - Unique ID for each organization run
+
+**Benefits:**
+- Track every file operation
+- Enable undo functionality
+- Detect duplicates across multiple runs
+- Generate statistics and insights
 
 ---
 
 ## 🧪 Testing
 
-Create test files and run a dry-run:
+### Create Test Files
 
 ```bash
-# Run the example script to create test files
-python example_usage.py
-
-# Or create test files manually
+# Create test folder
 mkdir test_folder
-echo "test" > test_folder/document.pdf
-echo "test" > test_folder/photo.jpg
-echo "test" > test_folder/video.mp4
 
-# Run dry-run
+# Create some test files
+echo "test content" > test_folder/document.pdf
+echo "test content" > test_folder/photo.jpg
+echo "test content" > test_folder/video.mp4
+echo "test content" > test_folder/duplicate.jpg  # Same content as photo.jpg
+```
+
+### Test Phase 2 Features
+
+```bash
+# 1. Dry-run to preview
 python file_organizer.py test_folder --dry-run
 
-# Check the log
+# 2. Organize with database tracking
+python file_organizer.py test_folder --no-dry-run
+
+# 3. Check database stats
+python file_organizer.py --show-stats
+
+# 4. Try to organize again (will detect duplicates)
+python file_organizer.py test_folder --no-dry-run --check-duplicates
+
+# 5. Undo the organization
+python file_organizer.py --undo-last --no-dry-run
+
+# 6. Check the logs
 cat file_organizer.log
 ```
 
@@ -230,19 +326,26 @@ cat file_organizer.log
 
 ## 🗺️ Roadmap
 
-### ✅ Phase 1 (Current - Complete)
+### ✅ Phase 1 (Complete)
 - [x] Organize by file type and creation date
 - [x] Dry-run mode
 - [x] Comprehensive logging
 - [x] Modular, extensible code
 - [x] Command-line interface
 
-### 🔄 Phase 2 (Coming Next)
-- [ ] Duplicate file detection using SHA-256 hashing
-- [ ] Undo/rollback functionality
+### ✅ Phase 2 (Complete)
+- [x] Duplicate file detection using SHA-256 hashing
+- [x] Undo/rollback functionality
+- [x] SQLite database tracking
+- [x] Database statistics and insights
+- [x] Duplicate removal with confirmation
+
+### 🔄 Phase 3 (Coming Next)
 - [ ] File size-based organization
 - [ ] Configuration file support (YAML/JSON)
 - [ ] Progress bar for large operations
+- [ ] Batch undo (undo specific operations)
+- [ ] Export database reports
 
 ### 🚀 Phase 3 (Future)
 - [ ] AI-powered organization suggestions
@@ -269,9 +372,12 @@ This is a personal project, but suggestions and feedback are welcome! Key princi
 
 1. **Always run dry-run first:** Preview changes before applying them
 2. **Backup important files:** While the tool is designed to be safe, always backup critical data
-3. **File conflicts:** If a file with the same name exists, it will be renamed with a suffix (`_1`, `_2`, etc.)
-4. **Symbolic links:** Currently not handled (will be added in future phases)
-5. **Large files:** No special handling yet (future optimization planned)
+3. **Database file:** `file_organizer.db` stores all operation history - keep it safe for undo capability
+4. **File conflicts:** If a file with the same name exists, it will be renamed with a suffix (`_1`, `_2`, etc.)
+5. **Duplicate detection:** Only works with database enabled (default in Phase 2)
+6. **Undo limitations:** Can only restore files if they haven't been moved/deleted after organization
+7. **SHA-256 hashing:** May be slow for very large files (>1GB)
+8. **Symbolic links:** Currently not handled (will be added in future phases)
 
 ---
 
@@ -299,5 +405,5 @@ For issues, questions, or suggestions:
 
 ---
 
-**Version:** 1.0.0 (Phase 1)  
-**Last Updated:** October 2024
+**Version:** 2.0.0 (Phase 2)  
+**Last Updated:** October 2025

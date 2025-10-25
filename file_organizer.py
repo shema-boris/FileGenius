@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-Local File Organizer - Phase 1
+Local File Organizer - Phase 2
 A privacy-first file organization tool that runs entirely on your local machine.
 
-Features:
+Phase 2 Features:
 - Organize files by type (images, documents, videos, others)
 - Organize by creation date (year/month)
+- **NEW:** SQLite database tracking for all file operations
+- **NEW:** SHA-256 hashing and duplicate detection
+- **NEW:** Undo capability to revert changes
+- **NEW:** Option to remove duplicate files
 - Dry-run mode to preview changes
 - Comprehensive logging
 - Modular design for future expansion
@@ -14,9 +18,13 @@ Features:
 import os
 import shutil
 import logging
+import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
+
+# Import database manager for Phase 2 features
+import database_manager as db
 
 
 # ============================================================================
@@ -223,7 +231,9 @@ def move_file(
     source: Path,
     target_dir: Path,
     dry_run: bool = True,
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
+    file_hash: Optional[str] = None,
+    file_info: Optional[Dict] = None
 ) -> bool:
     """
     Move a file to the target directory, handling name conflicts.
@@ -285,7 +295,11 @@ def organize_files(
     output_directory: str = 'organized',
     organize_by_date: bool = True,
     recursive: bool = False,
-    dry_run: bool = True
+    dry_run: bool = True,
+    enable_database: bool = True,
+    check_duplicates: bool = True,
+    remove_duplicates: bool = False,
+    db_path: str = 'file_organizer.db'
 ) -> Dict[str, int]:
     """
     Main function to organize files in a directory.
@@ -296,9 +310,13 @@ def organize_files(
         organize_by_date: If True, organize into year/month subfolders
         recursive: If True, scan subdirectories recursively
         dry_run: If True, only log planned actions without moving files
+        enable_database: If True, track files in SQLite database
+        check_duplicates: If True, check for duplicate files using SHA-256
+        remove_duplicates: If True, delete duplicate files (requires confirmation)
+        db_path: Path to SQLite database file
         
     Returns:
-        Dictionary with statistics (files_processed, files_moved, errors)
+        Dictionary with statistics (files_processed, files_moved, errors, duplicates_found)
     """
     # Setup logging
     logger = setup_logging()
@@ -310,21 +328,36 @@ def organize_files(
     # Validate source directory
     if not source_path.exists():
         logger.error(f"Source directory does not exist: {source_path}")
-        return {'files_processed': 0, 'files_moved': 0, 'errors': 1}
+        return {'files_processed': 0, 'files_moved': 0, 'errors': 1, 'duplicates_found': 0}
     
     if not source_path.is_dir():
         logger.error(f"Source path is not a directory: {source_path}")
-        return {'files_processed': 0, 'files_moved': 0, 'errors': 1}
+        return {'files_processed': 0, 'files_moved': 0, 'errors': 1, 'duplicates_found': 0}
+    
+    # Initialize database if enabled
+    operation_id = None
+    if enable_database and not dry_run:
+        try:
+            db.init_db(db_path)
+            operation_id = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            logger.info(f"Database initialized: {db_path}")
+            logger.info(f"Operation ID: {operation_id}")
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            enable_database = False
     
     # Log operation start
     mode = "DRY-RUN MODE" if dry_run else "LIVE MODE"
     logger.info("=" * 70)
-    logger.info(f"FILE ORGANIZER - {mode}")
+    logger.info(f"FILE ORGANIZER PHASE 2 - {mode}")
     logger.info("=" * 70)
     logger.info(f"Source directory: {source_path}")
     logger.info(f"Output directory: {output_path}")
     logger.info(f"Organize by date: {organize_by_date}")
     logger.info(f"Recursive scan: {recursive}")
+    logger.info(f"Database tracking: {enable_database}")
+    logger.info(f"Duplicate detection: {check_duplicates}")
+    logger.info(f"Remove duplicates: {remove_duplicates}")
     logger.info("=" * 70)
     
     # Scan directory for files
@@ -336,7 +369,9 @@ def organize_files(
     stats = {
         'files_processed': 0,
         'files_moved': 0,
-        'errors': 0
+        'errors': 0,
+        'duplicates_found': 0,
+        'duplicates_removed': 0
     }
     
     # Process each file
@@ -351,6 +386,42 @@ def organize_files(
         except Exception:
             pass
         
+        # Compute SHA-256 hash if duplicate checking is enabled
+        file_hash = None
+        if check_duplicates or enable_database:
+            try:
+                file_hash = db.compute_file_hash(file_path)
+            except Exception as e:
+                logger.error(f"Failed to compute hash for {file_path.name}: {e}")
+        
+        # Check for duplicates
+        is_duplicate = False
+        if check_duplicates and file_hash and enable_database:
+            try:
+                duplicate = db.get_duplicate(file_hash, db_path)
+                if duplicate:
+                    stats['duplicates_found'] += 1
+                    is_duplicate = True
+                    logger.warning(f"DUPLICATE: {file_path.name} matches {duplicate['file_name']}")
+                    logger.warning(f"  Original: {duplicate['new_path']}")
+                    logger.warning(f"  Duplicate: {file_path}")
+                    
+                    # Handle duplicate removal
+                    if remove_duplicates:
+                        if dry_run:
+                            logger.info(f"WOULD DELETE duplicate: {file_path}")
+                        else:
+                            try:
+                                file_path.unlink()
+                                stats['duplicates_removed'] += 1
+                                logger.info(f"DELETED duplicate: {file_path}")
+                            except Exception as e:
+                                logger.error(f"Failed to delete duplicate {file_path}: {e}")
+                                stats['errors'] += 1
+                    continue  # Skip moving this file
+            except Exception as e:
+                logger.error(f"Error checking for duplicates: {e}")
+        
         # Determine file category
         category = get_file_category(file_path)
         logger.debug(f"File: {file_path.name} -> Category: {category}")
@@ -359,17 +430,67 @@ def organize_files(
         year, month = get_file_creation_date(file_path)
         logger.debug(f"Creation date: {year}-{month:02d}")
         
+        # Get file stats for database
+        file_stat = file_path.stat()
+        file_size = file_stat.st_size
+        created_at = datetime.fromtimestamp(file_stat.st_ctime).isoformat()
+        modified_at = datetime.fromtimestamp(file_stat.st_mtime).isoformat()
+        
         # Build target path
         target_dir = build_organized_path(
             output_path, category, year, month, organize_by_date
         )
         
-        # Move the file
-        success = move_file(file_path, target_dir, dry_run=dry_run, logger=logger)
+        # Build full target path for database
+        target_file = target_dir / file_path.name
         
-        if success:
+        # Handle name conflicts
+        counter = 1
+        original_target = target_file
+        while target_file.exists():
+            stem = original_target.stem
+            suffix = original_target.suffix
+            target_file = target_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+        
+        # Log the action
+        action = "WOULD MOVE" if dry_run else "MOVING"
+        logger.info(f"{action}: {file_path} -> {target_file}")
+        
+        # Move the file
+        try:
+            if not dry_run:
+                # Create target directory
+                target_dir.mkdir(parents=True, exist_ok=True)
+                # Move file
+                shutil.move(str(file_path), str(target_file))
+                logger.info(f"SUCCESS: Moved {file_path.name}")
+            
             stats['files_moved'] += 1
-        else:
+            
+            # Insert into database
+            if enable_database and not dry_run and operation_id:
+                try:
+                    file_info = {
+                        'original_path': str(file_path),
+                        'new_path': str(target_file),
+                        'file_name': file_path.name,
+                        'file_size': file_size,
+                        'file_type': category,
+                        'created_at': created_at,
+                        'modified_at': modified_at,
+                        'sha256_hash': file_hash or '',
+                        'operation_id': operation_id
+                    }
+                    db.insert_file_record(file_info, db_path)
+                except Exception as e:
+                    logger.error(f"Failed to insert database record: {e}")
+        
+        except PermissionError:
+            logger.error(f"PERMISSION DENIED: Cannot move {file_path}")
+            stats['errors'] += 1
+        except Exception as e:
+            logger.error(f"ERROR moving {file_path}: {e}")
             stats['errors'] += 1
     
     # Log summary
@@ -378,12 +499,15 @@ def organize_files(
     logger.info("=" * 70)
     logger.info(f"Files processed: {stats['files_processed']}")
     logger.info(f"Files moved: {stats['files_moved']}")
+    logger.info(f"Duplicates found: {stats['duplicates_found']}")
+    if remove_duplicates:
+        logger.info(f"Duplicates removed: {stats['duplicates_removed']}")
     logger.info(f"Errors: {stats['errors']}")
     
     if dry_run:
         logger.info("")
         logger.info("This was a DRY-RUN. No files were actually moved.")
-        logger.info("Run with dry_run=False to perform the actual organization.")
+        logger.info("Run with --no-dry-run to perform the actual organization.")
     
     logger.info("=" * 70)
     
@@ -402,26 +526,36 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description='Local File Organizer - Organize your files by type and date',
+        description='Local File Organizer Phase 2 - Organize your files by type and date with duplicate detection',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Dry-run to see what would happen
+  # Dry-run to see what would happen (Phase 1 behavior)
   python file_organizer.py /path/to/messy/folder --dry-run
   
-  # Actually organize files
+  # Actually organize files with database tracking
   python file_organizer.py /path/to/messy/folder --no-dry-run
   
-  # Organize without date subfolders
-  python file_organizer.py /path/to/folder --no-dry-run --no-date
+  # Check for duplicates but don't remove them
+  python file_organizer.py /path/to/folder --no-dry-run --check-duplicates
   
-  # Recursive scan including subdirectories
-  python file_organizer.py /path/to/folder --recursive --dry-run
+  # Remove duplicate files (with confirmation)
+  python file_organizer.py /path/to/folder --no-dry-run --remove-duplicates
+  
+  # Undo the last organization operation
+  python file_organizer.py --undo-last
+  
+  # Show database statistics
+  python file_organizer.py --show-stats
+  
+  # Organize without database tracking (Phase 1 mode)
+  python file_organizer.py /path/to/folder --no-dry-run --no-database
         """
     )
     
     parser.add_argument(
         'source',
+        nargs='?',
         help='Source directory to organize'
     )
     
@@ -456,10 +590,101 @@ Examples:
         help='Actually move files (overrides --dry-run)'
     )
     
+    # Phase 2 arguments
+    parser.add_argument(
+        '--no-database',
+        action='store_true',
+        help='Disable database tracking (Phase 1 behavior)'
+    )
+    
+    parser.add_argument(
+        '--check-duplicates',
+        action='store_true',
+        help='Check for duplicate files using SHA-256 hashing'
+    )
+    
+    parser.add_argument(
+        '--remove-duplicates',
+        action='store_true',
+        help='Remove duplicate files (implies --check-duplicates)'
+    )
+    
+    parser.add_argument(
+        '--db-path',
+        default='file_organizer.db',
+        help='Path to SQLite database file (default: file_organizer.db)'
+    )
+    
+    parser.add_argument(
+        '--undo-last',
+        action='store_true',
+        help='Undo the last organization operation'
+    )
+    
+    parser.add_argument(
+        '--show-stats',
+        action='store_true',
+        help='Show database statistics'
+    )
+    
     args = parser.parse_args()
+    
+    # Handle special commands
+    if args.undo_last:
+        logger = setup_logging()
+        logger.info("=" * 70)
+        logger.info("UNDO LAST OPERATION")
+        logger.info("=" * 70)
+        
+        # Get confirmation
+        if not args.no_dry_run:
+            logger.info("DRY-RUN MODE: Showing what would be undone")
+            stats = db.undo_last_operation(args.db_path, dry_run=True)
+        else:
+            response = input("\nAre you sure you want to undo the last operation? (yes/no): ")
+            if response.lower() == 'yes':
+                stats = db.undo_last_operation(args.db_path, dry_run=False)
+            else:
+                logger.info("Undo cancelled.")
+                return
+        
+        logger.info("=" * 70)
+        logger.info(f"Files restored: {stats['files_restored']}")
+        logger.info(f"Errors: {stats['errors']}")
+        logger.info("=" * 70)
+        return
+    
+    if args.show_stats:
+        logger = setup_logging()
+        
+        if not db.database_exists(args.db_path):
+            logger.error(f"Database not found: {args.db_path}")
+            return
+        
+        logger.info("=" * 70)
+        logger.info("DATABASE STATISTICS")
+        logger.info("=" * 70)
+        
+        stats = db.get_database_stats(args.db_path)
+        logger.info(f"Total files tracked: {stats['total_files']}")
+        logger.info(f"Total size: {stats['total_size_mb']} MB ({stats['total_size_bytes']} bytes)")
+        logger.info(f"Total operations: {stats['total_operations']}")
+        logger.info("")
+        logger.info("Files by type:")
+        for file_type, count in stats['files_by_type'].items():
+            logger.info(f"  {file_type}: {count}")
+        logger.info("=" * 70)
+        return
+    
+    # Validate source directory for organize operation
+    if not args.source:
+        parser.error("source directory is required unless using --undo-last or --show-stats")
     
     # Determine dry-run mode
     dry_run = not args.no_dry_run
+    
+    # If remove_duplicates is set, enable check_duplicates
+    check_duplicates = args.check_duplicates or args.remove_duplicates
     
     # Run the organizer
     organize_files(
@@ -467,7 +692,11 @@ Examples:
         output_directory=args.output,
         organize_by_date=not args.no_date,
         recursive=args.recursive,
-        dry_run=dry_run
+        dry_run=dry_run,
+        enable_database=not args.no_database,
+        check_duplicates=check_duplicates,
+        remove_duplicates=args.remove_duplicates,
+        db_path=args.db_path
     )
 
 
