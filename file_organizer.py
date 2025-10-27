@@ -26,6 +26,10 @@ from typing import Dict, List, Tuple, Optional
 # Import database manager for Phase 2 features
 import database_manager as db
 
+# Import Phase 3 features
+import suggestion_engine as suggest
+import report_generator as report
+
 
 # ============================================================================
 # CONFIGURATION
@@ -627,9 +631,117 @@ Examples:
         help='Show database statistics'
     )
     
+    # Phase 3 arguments
+    parser.add_argument(
+        '--suggest',
+        action='store_true',
+        help='Analyze database and show intelligent suggestions'
+    )
+    
+    parser.add_argument(
+        '--undo',
+        metavar='OPERATION_ID',
+        help='Undo a specific operation by its ID'
+    )
+    
+    parser.add_argument(
+        '--list-operations',
+        action='store_true',
+        help='List all operations in the database'
+    )
+    
+    parser.add_argument(
+        '--report',
+        metavar='OUTPUT_PATH',
+        help='Generate comprehensive report (use .json or .csv extension)'
+    )
+    
     args = parser.parse_args()
     
-    # Handle special commands
+    # Handle special commands (Phase 2 & 3)
+    
+    # Phase 3: Suggestions
+    if args.suggest:
+        logger = setup_logging()
+        suggest.print_suggestions(args.db_path)
+        return
+    
+    # Phase 3: List operations
+    if args.list_operations:
+        logger = setup_logging()
+        
+        if not db.database_exists(args.db_path):
+            logger.error(f"Database not found: {args.db_path}")
+            return
+        
+        logger.info("=" * 70)
+        logger.info("OPERATIONS HISTORY")
+        logger.info("=" * 70)
+        
+        operations = db.list_operations(args.db_path)
+        
+        if not operations:
+            logger.info("No operations found in database")
+        else:
+            logger.info(f"Found {len(operations)} operations:\n")
+            for i, op in enumerate(operations, 1):
+                logger.info(f"{i}. {op['operation_id']}")
+                logger.info(f"   Date: {op['operation_date']}")
+                logger.info(f"   Files: {op['file_count']}")
+                logger.info("")
+        
+        logger.info("=" * 70)
+        logger.info(f"Use --undo <OPERATION_ID> to undo a specific operation")
+        logger.info("=" * 70)
+        return
+    
+    # Phase 3: Batch undo by operation ID
+    if args.undo:
+        logger = setup_logging()
+        logger.info("=" * 70)
+        logger.info(f"UNDO OPERATION: {args.undo}")
+        logger.info("=" * 70)
+        
+        # Check if operation exists
+        if not db.operation_exists(args.undo, args.db_path):
+            logger.error(f"Operation ID not found: {args.undo}")
+            logger.info("Use --list-operations to see available operations")
+            return
+        
+        # Get confirmation
+        if not args.no_dry_run:
+            logger.info("DRY-RUN MODE: Showing what would be undone")
+            stats = db.undo_operation(args.undo, args.db_path, dry_run=True)
+        else:
+            response = input(f"\nAre you sure you want to undo operation {args.undo}? (yes/no): ")
+            if response.lower() == 'yes':
+                stats = db.undo_operation(args.undo, args.db_path, dry_run=False)
+            else:
+                logger.info("Undo cancelled.")
+                return
+        
+        logger.info("=" * 70)
+        logger.info(f"Files restored: {stats['files_restored']}")
+        logger.info(f"Errors: {stats['errors']}")
+        logger.info("=" * 70)
+        return
+    
+    # Phase 3: Generate report
+    if args.report:
+        logger = setup_logging()
+        
+        if not db.database_exists(args.db_path):
+            logger.error(f"Database not found: {args.db_path}")
+            return
+        
+        success = report.generate_report(args.report, args.db_path, print_console=True)
+        
+        if not success:
+            logger.error("Report generation failed")
+        
+        return
+    
+    # Phase 2: Undo last operation
     if args.undo_last:
         logger = setup_logging()
         logger.info("=" * 70)

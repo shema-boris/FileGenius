@@ -3,6 +3,13 @@ file_organizer.log
 file_organizer.db
 organized/
 test_folder/
+test_files/
+
+# Reports (Phase 3)
+*.csv
+*.json
+!requirements.txt
+!package.json
 
 # Python
 __pycache__/

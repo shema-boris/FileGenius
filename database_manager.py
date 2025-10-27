@@ -520,7 +520,7 @@ def undo_last_operation(
     Convenience wrapper around undo_operation().
     
     Args:
-        db_path: Path to the SQLite database file
+        db_path: Path to SQLite database file
         dry_run: If True, only log what would be done
         
     Returns:
@@ -543,6 +543,79 @@ def undo_last_operation(
     
     # Undo that operation
     return undo_operation(operation_id, db_path, dry_run)
+
+
+def list_operations(db_path: str = DEFAULT_DB_PATH) -> List[Dict[str, Any]]:
+    """
+    List all operations in the database.
+    
+    Args:
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List of operation dictionaries with id, date, and file count
+        
+    Example:
+        >>> operations = list_operations()
+        >>> for op in operations:
+        ...     print(f"{op['operation_id']}: {op['file_count']} files")
+    """
+    logger = logging.getLogger('FileOrganizer')
+    
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT operation_id, 
+                       MIN(operation_date) as operation_date,
+                       COUNT(*) as file_count
+                FROM files
+                GROUP BY operation_id
+                ORDER BY operation_date DESC
+            """)
+            
+            operations = []
+            for row in cursor.fetchall():
+                operations.append({
+                    'operation_id': row['operation_id'],
+                    'operation_date': row['operation_date'],
+                    'file_count': row['file_count']
+                })
+            
+            return operations
+    
+    except Exception as e:
+        logger.error(f"Failed to list operations: {e}")
+        return []
+
+
+def operation_exists(operation_id: str, db_path: str = DEFAULT_DB_PATH) -> bool:
+    """
+    Check if an operation ID exists in the database.
+    
+    Args:
+        operation_id: Operation ID to check
+        db_path: Path to SQLite database file
+        
+    Returns:
+        True if operation exists, False otherwise
+    """
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM files
+                WHERE operation_id = ?
+            """, (operation_id,))
+            
+            result = cursor.fetchone()
+            return result['count'] > 0
+    
+    except Exception:
+        return False
 
 
 # ============================================================================

@@ -4,7 +4,7 @@ A privacy-first file organization tool that runs entirely on your local machine.
 
 ## 🎯 Project Overview
 
-**Current Status:** Phase 2 Complete ✨
+**Current Status:** Phase 3 Complete 🚀
 
 FileGenius is a personal AI assistant that helps organize files on your local machine automatically. Built with privacy as the top priority, all operations run locally.
 
@@ -31,7 +31,7 @@ FileGenius is a personal AI assistant that helps organize files on your local ma
 - Handles filename conflicts automatically
 - Recursive directory scanning
 
-### ✅ Phase 2 (Complete) - **NEW!**
+### ✅ Phase 2 (Complete)
 - **SQLite Database Tracking:** Every file operation is recorded with full metadata
 - **SHA-256 Hashing:** Compute and store file hashes for integrity verification
 - **Duplicate Detection:** Identify duplicate files across your system
@@ -39,6 +39,14 @@ FileGenius is a personal AI assistant that helps organize files on your local ma
 - **Undo Capability:** Revert the last organization operation safely
 - **Database Statistics:** View insights about your organized files
 - **Backward Compatible:** Can disable database features for Phase 1 behavior
+
+### ✅ Phase 3 (Complete) - **NEW!**
+- **Smart Suggestions:** AI-driven analysis with intelligent organization recommendations
+- **Batch Undo:** Undo specific operations by ID, not just the last one
+- **Comprehensive Reporting:** Export detailed insights to CSV or JSON
+- **Operations History:** List and manage all organization operations
+- **Pattern Analysis:** Identify temporal patterns and file distribution
+- **Actionable Insights:** Get specific CLI commands to optimize your file organization
 
 ---
 
@@ -88,6 +96,28 @@ python file_organizer.py --undo-last --no-dry-run
 **6. View database statistics:**
 ```bash
 python file_organizer.py --show-stats
+```
+
+**7. Get smart suggestions (Phase 3):**
+```bash
+python file_organizer.py --suggest
+```
+
+**8. Generate comprehensive report (Phase 3):**
+```bash
+python file_organizer.py --report my_report.json
+# or
+python file_organizer.py --report my_report.csv
+```
+
+**9. List all operations (Phase 3):**
+```bash
+python file_organizer.py --list-operations
+```
+
+**10. Undo specific operation (Phase 3):**
+```bash
+python file_organizer.py --undo run_20241025_120000_a3b2c1d4 --no-dry-run
 ```
 
 ---
@@ -182,6 +212,12 @@ Phase 2 Options:
   --db-path DB_PATH     Path to SQLite database file (default: file_organizer.db)
   --undo-last           Undo the last organization operation
   --show-stats          Show database statistics
+
+Phase 3 Options:
+  --suggest             Analyze database and show intelligent suggestions
+  --undo OPERATION_ID   Undo a specific operation by its ID
+  --list-operations     List all operations in the database
+  --report OUTPUT_PATH  Generate comprehensive report (.json or .csv)
 ```
 
 ---
@@ -237,6 +273,28 @@ stats = db.undo_last_operation(dry_run=True)
 # Get statistics
 stats = db.get_database_stats()
 print(f"Total files: {stats['total_files']}")
+```
+
+### Phase 3 APIs
+
+```python
+import suggestion_engine as suggest
+import report_generator as report
+
+# Get smart suggestions
+suggestions = suggest.generate_suggestions()
+for s in suggestions:
+    print(f"{s.priority}: {s.description}")
+
+# Generate detailed analysis
+analysis = suggest.get_detailed_analysis()
+print(analysis['duplicates'])
+
+# Generate and export report
+report.generate_report('report.json', print_console=True)
+
+# Quick console summary
+report.quick_summary()
 ```
 
 ---
@@ -340,12 +398,20 @@ cat file_organizer.log
 - [x] Database statistics and insights
 - [x] Duplicate removal with confirmation
 
-### 🔄 Phase 3 (Coming Next)
+### ✅ Phase 3 (Complete)
+- [x] Smart suggestions with AI-driven analysis
+- [x] Batch undo (undo specific operations by ID)
+- [x] Comprehensive reporting (CSV/JSON export)
+- [x] Operations history management
+- [x] Temporal and pattern analysis
+- [x] Actionable insights and recommendations
+
+### 🔄 Phase 4 (Future)
 - [ ] File size-based organization
 - [ ] Configuration file support (YAML/JSON)
 - [ ] Progress bar for large operations
-- [ ] Batch undo (undo specific operations)
-- [ ] Export database reports
+- [ ] Machine learning for organization patterns
+- [ ] Advanced duplicate management (keep best quality)
 
 ### 🚀 Phase 3 (Future)
 - [ ] AI-powered organization suggestions
@@ -405,5 +471,5 @@ For issues, questions, or suggestions:
 
 ---
 
-**Version:** 2.0.0 (Phase 2)  
+**Version:** 3.0.0 (Phase 3)  
 **Last Updated:** October 2025
