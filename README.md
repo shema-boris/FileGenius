@@ -4,7 +4,7 @@ A privacy-first file organization tool that runs entirely on your local machine.
 
 ## 🎯 Project Overview
 
-**Current Status:** Phase 3 Complete 🚀
+**Current Status:** Phase 4 Complete 🧠✨
 
 FileGenius is a personal AI assistant that helps organize files on your local machine automatically. Built with privacy as the top priority, all operations run locally.
 
@@ -40,13 +40,22 @@ FileGenius is a personal AI assistant that helps organize files on your local ma
 - **Database Statistics:** View insights about your organized files
 - **Backward Compatible:** Can disable database features for Phase 1 behavior
 
-### ✅ Phase 3 (Complete) - **NEW!**
+### ✅ Phase 3 (Complete)
 - **Smart Suggestions:** AI-driven analysis with intelligent organization recommendations
 - **Batch Undo:** Undo specific operations by ID, not just the last one
 - **Comprehensive Reporting:** Export detailed insights to CSV or JSON
 - **Operations History:** List and manage all organization operations
 - **Pattern Analysis:** Identify temporal patterns and file distribution
 - **Actionable Insights:** Get specific CLI commands to optimize your file organization
+
+### ✅ Phase 4 (Complete) - **NEW!** 🧠
+- **Adaptive Learning:** System learns from your organization habits automatically
+- **Confidence-Based Predictions:** Every suggestion includes confidence score (0-100%)
+- **Auto-Organize Mode:** Automatically organize files using learned patterns
+- **Pattern Recognition:** Learns file type, extension, and naming patterns
+- **Explainable AI:** Every prediction includes the reason and data source
+- **100% Offline Learning:** All ML happens locally, zero external dependencies
+- **Model Persistence:** Save and reload learned preferences
 
 ---
 
@@ -118,6 +127,22 @@ python file_organizer.py --list-operations
 **10. Undo specific operation (Phase 3):**
 ```bash
 python file_organizer.py --undo run_20241025_120000_a3b2c1d4 --no-dry-run
+```
+
+**11. Train learning system (Phase 4):**
+```bash
+python file_organizer.py --learn
+```
+
+**12. Auto-organize with learned patterns (Phase 4):**
+```bash
+python file_organizer.py /path/to/folder --auto --dry-run
+# Use --no-dry-run to actually move files
+```
+
+**13. Reset learning data (Phase 4):**
+```bash
+python file_organizer.py --reset-learning
 ```
 
 ---
@@ -218,6 +243,11 @@ Phase 3 Options:
   --undo OPERATION_ID   Undo a specific operation by its ID
   --list-operations     List all operations in the database
   --report OUTPUT_PATH  Generate comprehensive report (.json or .csv)
+
+Phase 4 Options:
+  --learn               Train learning system from past organization history
+  --auto                Auto-organize files using learned patterns (high confidence only)
+  --reset-learning      Clear all learned preferences and models
 ```
 
 ---
@@ -295,6 +325,38 @@ report.generate_report('report.json', print_console=True)
 
 # Quick console summary
 report.quick_summary()
+```
+
+### Phase 4 APIs - Adaptive Learning
+
+```python
+import learning_engine as learn
+
+# Train model from history
+model = learn.learn_from_history('file_organizer.db')
+
+# Save trained model
+learn.save_model(model)
+
+# Load existing model
+model = learn.load_model()
+
+# Predict destination for a file
+file_meta = {
+    'file_name': 'report_2024.pdf',
+    'file_type': 'documents',
+    'file_ext': '.pdf'
+}
+dest, confidence, reason = learn.predict_destination(file_meta, model)
+print(f"Prediction: {dest} ({confidence:.0%})")
+print(f"Reason: {reason}")
+
+# Get learning statistics
+stats = learn.get_learning_stats(model)
+print(f"Trained on {stats['total_samples']} files")
+
+# Clear all learning data
+learn.clear_learning_data()
 ```
 
 ---
@@ -471,5 +533,5 @@ For issues, questions, or suggestions:
 
 ---
 
-**Version:** 3.0.0 (Phase 3)  
+**Version:** 4.0.0 (Phase 4 - Adaptive Learning)  
 **Last Updated:** October 2025

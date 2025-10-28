@@ -11,6 +11,11 @@ test_files/
 !requirements.txt
 !package.json
 
+# Learning data (Phase 4)
+learning_data/
+*.pkl
+preferences.json
+
 # Python
 __pycache__/
 *.py[cod]

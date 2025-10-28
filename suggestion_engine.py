@@ -18,6 +18,7 @@ from typing import List, Dict, Any, Optional
 from collections import defaultdict, Counter
 
 import database_manager as db
+import learning_engine as learn
 
 
 # ============================================================================
@@ -28,18 +29,31 @@ class Suggestion:
     """Base class for organization suggestions."""
     
     def __init__(self, suggestion_type: str, priority: str, description: str, 
-                 details: Dict[str, Any], action: Optional[str] = None):
+                 details: Dict[str, Any], action: Optional[str] = None,
+                 confidence: Optional[float] = None, reason: Optional[str] = None):
         self.type = suggestion_type
         self.priority = priority  # 'high', 'medium', 'low'
         self.description = description
         self.details = details
         self.action = action  # Recommended CLI command
+        self.confidence = confidence  # Phase 4: 0-1 confidence score
+        self.reason = reason  # Phase 4: Explanation for prediction
     
     def __str__(self):
         priority_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
         emoji = priority_emoji.get(self.priority, '⚪')
         
         output = f"{emoji} [{self.priority.upper()}] {self.description}\n"
+        
+        # Phase 4: Show confidence if available
+        if self.confidence is not None:
+            conf_emoji = learn.get_confidence_emoji(self.confidence)
+            output += f"  {conf_emoji} Confidence: {self.confidence:.1%}\n"
+        
+        # Phase 4: Show reason if available
+        if self.reason:
+            output += f"  📊 Reason: {self.reason}\n"
+        
         for key, value in self.details.items():
             output += f"  • {key}: {value}\n"
         if self.action:
@@ -269,15 +283,58 @@ def analyze_operations(db_path: str = 'file_organizer.db') -> Dict[str, Any]:
 
 
 # ============================================================================
+# ADAPTIVE LEARNING SUGGESTIONS (PHASE 4)
+# ============================================================================
+
+def generate_adaptive_suggestions(
+    db_path: str,
+    model: 'learn.FileOrganizationModel'
+) -> List[Suggestion]:
+    """
+    Generate suggestions using adaptive learning predictions.
+    
+    Args:
+        db_path: Path to database
+        model: Trained learning model
+        
+    Returns:
+        List of adaptive suggestions with confidence scores
+    """
+    logger = logging.getLogger('FileOrganizer')
+    suggestions = []
+    
+    # Add learning system status
+    stats = learn.get_learning_stats(model)
+    
+    suggestions.append(Suggestion(
+        suggestion_type='learning_active',
+        priority='low',
+        description="Adaptive Learning System Active",
+        details={
+            'Training samples': stats['total_samples'],
+            'File types learned': stats['file_types_learned'],
+            'Last trained': stats['last_trained'][:19] if stats['last_trained'] else 'Never'
+        },
+        confidence=1.0,
+        reason=f"Model trained on {stats['total_samples']} historical file operations",
+        action="python file_organizer.py --auto  # Auto-organize with learned patterns"
+    ))
+    
+    return suggestions
+
+
+# ============================================================================
 # SUGGESTION GENERATION
 # ============================================================================
 
-def generate_suggestions(db_path: str = 'file_organizer.db') -> List[Suggestion]:
+def generate_suggestions(db_path: str = 'file_organizer.db', 
+                        use_learning: bool = True) -> List[Suggestion]:
     """
     Generate intelligent suggestions based on database analysis.
     
     Args:
         db_path: Path to SQLite database
+        use_learning: Whether to include adaptive learning predictions (Phase 4)
         
     Returns:
         List of Suggestion objects
@@ -288,6 +345,18 @@ def generate_suggestions(db_path: str = 'file_organizer.db') -> List[Suggestion]
     if not db.database_exists(db_path):
         logger.warning("Database not found. No suggestions available.")
         return suggestions
+    
+    # Phase 4: Load learning model if available
+    model = None
+    if use_learning:
+        model = learn.load_model()
+        if model:
+            logger.info(f"✓ Loaded learning model ({model.total_samples} samples)")
+    
+    # Phase 4: Add adaptive predictions if model exists
+    if model and model.total_samples >= learn.MIN_SAMPLES_FOR_PREDICTION:
+        adaptive_suggestions = generate_adaptive_suggestions(db_path, model)
+        suggestions.extend(adaptive_suggestions)
     
     # Analyze duplicates
     dup_analysis = analyze_duplicates(db_path)
