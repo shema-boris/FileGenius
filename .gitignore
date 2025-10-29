@@ -16,6 +16,12 @@ learning_data/
 *.pkl
 preferences.json
 
+# Phase 5: Feedback and preferences
+feedback.json
+user_preferences.json
+incremental_counter.json
+sync_log.json
+
 # Python
 __pycache__/
 *.py[cod]
