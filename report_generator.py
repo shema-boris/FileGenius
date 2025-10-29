@@ -19,6 +19,8 @@ from typing import Dict, Any, List, Optional
 
 import database_manager as db
 import suggestion_engine as suggest
+import learning_engine as learn
+import feedback_manager as feedback
 
 
 # ============================================================================
@@ -50,12 +52,16 @@ def generate_report_data(db_path: str = 'file_organizer.db') -> Dict[str, Any]:
     operations = suggest.analyze_operations(db_path)
     suggestions = suggest.generate_suggestions(db_path)
     
+    # Phase 5: Get learning and feedback analytics
+    learning_analytics = _get_learning_analytics()
+    feedback_analytics = _get_feedback_analytics()
+    
     # Build report
     report = {
         'report_metadata': {
             'generated_at': datetime.now().isoformat(),
             'database_path': db_path,
-            'report_version': '3.0'
+            'report_version': '5.0'  # Updated to Phase 5
         },
         'summary': {
             'total_files': stats['total_files'],
@@ -86,13 +92,141 @@ def generate_report_data(db_path: str = 'file_organizer.db') -> Dict[str, Any]:
                 'priority': s.priority,
                 'description': s.description,
                 'details': s.details,
-                'action': s.action
+                'action': s.action,
+                'confidence': s.confidence,
+                'reason': s.reason
             }
             for s in suggestions
-        ]
+        ],
+        # Phase 5: Learning and feedback insights
+        'learning_insights': learning_analytics,
+        'feedback_insights': feedback_analytics
     }
     
     return report
+
+
+# ============================================================================
+# PHASE 5: LEARNING & FEEDBACK ANALYTICS
+# ============================================================================
+
+def _get_learning_analytics() -> Dict[str, Any]:
+    """
+    Get learning model analytics for report.
+    
+    Returns:
+        Dictionary with learning insights
+    """
+    try:
+        model = learn.load_model()
+        
+        if not model or model.total_samples == 0:
+            return {
+                'enabled': False,
+                'status': 'No learning data available',
+                'total_samples': 0
+            }
+        
+        stats = learn.get_learning_stats(model)
+        
+        # Calculate pattern strengths
+        pattern_strengths = []
+        
+        # Type patterns
+        for file_type, destinations in model.type_to_folder.items():
+            total_count = sum(destinations.values())
+            most_common = destinations.most_common(1)
+            if most_common:
+                dest, count = most_common[0]
+                confidence = (count / total_count) * 100
+                pattern_strengths.append({
+                    'pattern': f'type:{file_type}',
+                    'destination': dest,
+                    'confidence': confidence,
+                    'sample_count': total_count
+                })
+        
+        # Extension patterns
+        for ext, destinations in model.ext_to_folder.items():
+            total_count = sum(destinations.values())
+            most_common = destinations.most_common(1)
+            if most_common:
+                dest, count = most_common[0]
+                confidence = (count / total_count) * 100
+                pattern_strengths.append({
+                    'pattern': f'ext:{ext}',
+                    'destination': dest,
+                    'confidence': confidence,
+                    'sample_count': total_count
+                })
+        
+        # Sort by confidence
+        pattern_strengths.sort(key=lambda x: x['confidence'], reverse=True)
+        
+        # Calculate average confidence
+        avg_confidence = sum(p['confidence'] for p in pattern_strengths) / len(pattern_strengths) if pattern_strengths else 0
+        
+        # Find strongest and weakest patterns
+        strongest = pattern_strengths[0] if pattern_strengths else None
+        weakest = pattern_strengths[-1] if pattern_strengths else None
+        
+        return {
+            'enabled': True,
+            'status': 'Active',
+            'total_samples': stats['total_samples'],
+            'file_types_learned': stats['file_types_learned'],
+            'extensions_learned': stats['extensions_learned'],
+            'last_trained': stats['last_trained'],
+            'average_confidence': avg_confidence,
+            'strongest_pattern': strongest,
+            'weakest_pattern': weakest,
+            'top_patterns': pattern_strengths[:10]
+        }
+    
+    except Exception as e:
+        return {
+            'enabled': False,
+            'status': f'Error: {str(e)}',
+            'total_samples': 0
+        }
+
+
+def _get_feedback_analytics() -> Dict[str, Any]:
+    """
+    Get feedback reinforcement analytics for report.
+    
+    Returns:
+        Dictionary with feedback insights
+    """
+    try:
+        feedback_stats = feedback.get_feedback_stats()
+        
+        if feedback_stats['total_feedback'] == 0:
+            return {
+                'enabled': feedback_stats['enabled'],
+                'status': 'No feedback data available',
+                'total_feedback': 0
+            }
+        
+        return {
+            'enabled': feedback_stats['enabled'],
+            'status': 'Active',
+            'total_feedback': feedback_stats['total_feedback'],
+            'total_correct': feedback_stats['total_correct'],
+            'total_wrong': feedback_stats['total_wrong'],
+            'overall_accuracy': feedback_stats['overall_accuracy'],
+            'strongest_pattern': feedback_stats['strongest_pattern'],
+            'weakest_pattern': feedback_stats['weakest_pattern'],
+            'top_patterns': feedback_stats['patterns'][:10],
+            'last_updated': feedback_stats['last_updated']
+        }
+    
+    except Exception as e:
+        return {
+            'enabled': False,
+            'status': f'Error: {str(e)}',
+            'total_feedback': 0
+        }
 
 
 # ============================================================================
@@ -305,6 +439,39 @@ def print_summary_report(report_data: Dict[str, Any]):
             for op in operations['operations'][:5]:
                 logger.info(f"  • {op['operation_id'][:30]}... - {op['file_count']} files ({op['operation_date'][:10]})")
             logger.info("")
+    
+    # Phase 5: Learning Insights
+    learning_insights = report_data.get('learning_insights', {})
+    if learning_insights.get('enabled'):
+        logger.info("🧠 LEARNING INSIGHTS")
+        logger.info("-" * 70)
+        logger.info(f"Status: {learning_insights['status']}")
+        logger.info(f"Training Samples: {learning_insights['total_samples']}")
+        logger.info(f"Average Confidence: {learning_insights.get('average_confidence', 0):.1f}%")
+        logger.info("")
+        
+        strongest = learning_insights.get('strongest_pattern')
+        if strongest:
+            logger.info(f"Strongest Pattern: {strongest['pattern']} → {strongest['destination']}")
+            logger.info(f"  Confidence: {strongest['confidence']:.1f}% ({strongest['sample_count']} samples)")
+        
+        weakest = learning_insights.get('weakest_pattern')
+        if weakest and learning_insights.get('file_types_learned', 0) > 1:
+            logger.info(f"Weakest Pattern: {weakest['pattern']} → {weakest['destination']}")
+            logger.info(f"  Confidence: {weakest['confidence']:.1f}% ({weakest['sample_count']} samples)")
+        
+        logger.info("")
+    
+    # Phase 5: Feedback Insights
+    feedback_insights = report_data.get('feedback_insights', {})
+    if feedback_insights.get('enabled') and feedback_insights.get('total_feedback', 0) > 0:
+        logger.info("📊 FEEDBACK INSIGHTS")
+        logger.info("-" * 70)
+        logger.info(f"Overall Accuracy: {feedback_insights['overall_accuracy']:.1f}%")
+        logger.info(f"Total Feedback Events: {feedback_insights['total_feedback']}")
+        logger.info(f"  ✓ Correct: {feedback_insights['total_correct']}")
+        logger.info(f"  ✗ Wrong: {feedback_insights['total_wrong']}")
+        logger.info("")
     
     # Suggestions
     suggestions = report_data['suggestions']
