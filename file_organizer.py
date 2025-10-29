@@ -30,6 +30,10 @@ import report_generator as report
 # Import Phase 4 features
 import learning_engine as learn
 
+# Import Phase 5 features
+import feedback_manager as feedback
+import preference_manager as prefs
+
 
 # ============================================================================
 # CONFIGURATION
@@ -675,6 +679,32 @@ Examples:
         help='Clear all learned preferences and models'
     )
     
+    # Phase 5 arguments
+    parser.add_argument(
+        '--preferences',
+        action='store_true',
+        help='Manage user preferences interactively'
+    )
+    
+    parser.add_argument(
+        '--feedback',
+        metavar='on|off',
+        choices=['on', 'off'],
+        help='Enable or disable feedback logging'
+    )
+    
+    parser.add_argument(
+        '--relearn',
+        action='store_true',
+        help='Force a full retrain, resetting decay'
+    )
+    
+    parser.add_argument(
+        '--stats',
+        action='store_true',
+        help='Display learning & feedback performance statistics'
+    )
+    
     args = parser.parse_args()
     
     # Handle special commands (Phase 2, 3 & 4)
@@ -729,6 +759,66 @@ Examples:
             logger.info("Reset cancelled.")
         
         logger.info("=" * 70)
+        return
+    
+    # Phase 5: Manage preferences
+    if args.preferences:
+        logger = setup_logging()
+        prefs.edit_preferences_interactive()
+        return
+    
+    # Phase 5: Feedback control
+    if args.feedback:
+        logger = setup_logging()
+        if args.feedback == 'on':
+            feedback.enable_feedback()
+        else:
+            feedback.disable_feedback()
+        return
+    
+    # Phase 5: Relearn (full retrain without decay)
+    if args.relearn:
+        logger = setup_logging()
+        logger.info("=" * 70)
+        logger.info("FULL RETRAINING (NO DECAY)")
+        logger.info("=" * 70)
+        logger.info("This will retrain the model from scratch...")
+        
+        model = learn.learn_from_history(args.db_path)
+        if model:
+            learn.save_model(model)
+            learn.print_learning_summary(model)
+            logger.info("✓ Full retrain complete")
+        else:
+            logger.error("Failed to retrain model")
+        
+        logger.info("=" * 70)
+        return
+    
+    # Phase 5: Stats (learning & feedback)
+    if args.stats:
+        logger = setup_logging()
+        
+        # Show learning stats
+        model = learn.load_model()
+        if model and model.total_samples > 0:
+            stats = learn.get_learning_stats(model)
+            logger.info("=" * 70)
+            logger.info("LEARNING STATISTICS")
+            logger.info("=" * 70)
+            logger.info(f"Total samples: {stats['total_samples']}")
+            logger.info(f"File types learned: {stats['file_types_learned']}")
+            logger.info(f"Extensions learned: {stats['extensions_learned']}")
+            logger.info(f"Last trained: {stats['last_trained']}")
+            logger.info("=" * 70)
+            logger.info("")
+        
+        # Show feedback stats
+        feedback.print_feedback_stats()
+        
+        # Show preferences summary
+        prefs.print_preferences_summary()
+        
         return
     
     # Phase 3: Suggestions
@@ -787,6 +877,10 @@ Examples:
             response = input(f"\nAre you sure you want to undo operation {args.undo}? (yes/no): ")
             if response.lower() == 'yes':
                 stats = db.undo_operation(args.undo, args.db_path, dry_run=False)
+                
+                # Phase 5: Record negative feedback for undone operations
+                if prefs.load_preferences().get('feedback.auto_record_undo', True):
+                    feedback.record_undo_operation(args.undo, args.db_path)
             else:
                 logger.info("Undo cancelled.")
                 return
