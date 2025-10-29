@@ -7,6 +7,8 @@ This module provides adaptive learning capabilities:
 - Pattern recognition from historical data
 - Confidence-based predictions
 - Explainable recommendations
+- Incremental learning (Phase 5)
+- Exponential decay (Phase 5)
 - 100% offline operation
 """
 
@@ -36,6 +38,12 @@ CONFIDENCE_LOW = 0.5     # <50% = ask user
 
 # Minimum samples required to make predictions
 MIN_SAMPLES_FOR_PREDICTION = 3
+
+# Phase 5: Learning parameters
+DECAY_FACTOR = 0.95           # Exponential decay for old patterns
+NEW_WEIGHT_FACTOR = 0.05      # Weight for new observations
+SYNC_FREQUENCY = 5            # Sync model to disk every N operations
+INCREMENTAL_COUNTER_FILE = 'incremental_counter.json'
 
 
 # ============================================================================
@@ -565,6 +573,172 @@ def clear_learning_data(learning_dir: Path = DEFAULT_LEARNING_DIR) -> bool:
     
     except Exception as e:
         logger.error(f"Failed to clear learning data: {e}")
+        return False
+
+
+# ============================================================================
+# INCREMENTAL LEARNING (PHASE 5)
+# ============================================================================
+
+def update_model_incremental(
+    file_metadata: Dict[str, Any],
+    destination: str,
+    model: Optional[FileOrganizationModel] = None,
+    learning_dir: Path = DEFAULT_LEARNING_DIR,
+    apply_decay: bool = True
+) -> bool:
+    """
+    Update model incrementally with new file operation.
+    
+    Args:
+        file_metadata: File metadata {'file_name', 'file_type', 'file_ext'}
+        destination: Where the file was organized
+        model: Existing model (if None, loads from disk)
+        learning_dir: Directory for learning data
+        apply_decay: Whether to apply exponential decay
+        
+    Returns:
+        True if successful
+        
+    Example:
+        >>> update_model_incremental(
+        ...     {'file_name': 'report.pdf', 'file_type': 'documents', 'file_ext': '.pdf'},
+        ...     'documents'
+        ... )
+    """
+    logger = logging.getLogger('FileOrganizer')
+    
+    try:
+        # Load model if not provided
+        if model is None:
+            model = load_model(learning_dir)
+            if model is None:
+                model = FileOrganizationModel()
+        
+        # Apply decay to existing weights (Phase 5)
+        if apply_decay:
+            _apply_decay_to_model(model)
+        
+        # Extract patterns
+        file_name = file_metadata.get('file_name', '')
+        file_type = file_metadata.get('file_type', '')
+        file_ext = file_metadata.get('file_ext', '').lower()
+        name_pattern = extract_filename_pattern(file_name)
+        
+        # Update type pattern
+        if file_type:
+            model.type_to_folder[file_type][destination] += 1
+        
+        # Update extension pattern
+        if file_ext:
+            model.ext_to_folder[file_ext][destination] += 1
+        
+        # Update filename pattern
+        if name_pattern:
+            model.name_pattern_to_folder[name_pattern][destination] += 1
+        
+        # Update sample count
+        model.total_samples += 1
+        model.last_trained = datetime.now().isoformat()
+        
+        logger.info(f"[LEARNING] Updated model: {file_type} → {destination}")
+        
+        # Check if should sync to disk
+        if _should_sync(learning_dir):
+            save_model(model, learning_dir)
+            _reset_sync_counter(learning_dir)
+        
+        return True
+    
+    except Exception as e:
+        logger.error(f"Failed to update model incrementally: {e}")
+        return False
+
+
+def _apply_decay_to_model(model: FileOrganizationModel, decay_factor: float = DECAY_FACTOR):
+    """
+    Apply exponential decay to all pattern weights.
+    
+    This makes the model responsive to recent behavior changes.
+    
+    Args:
+        model: Model to apply decay to
+        decay_factor: Decay multiplier (e.g., 0.95 = 5% decay)
+    """
+    # Decay type patterns
+    for file_type, destinations in model.type_to_folder.items():
+        for dest in destinations:
+            model.type_to_folder[file_type][dest] = int(
+                destinations[dest] * decay_factor
+            )
+    
+    # Decay extension patterns
+    for ext, destinations in model.ext_to_folder.items():
+        for dest in destinations:
+            model.ext_to_folder[ext][dest] = int(
+                destinations[dest] * decay_factor
+            )
+    
+    # Decay name patterns
+    for pattern, destinations in model.name_pattern_to_folder.items():
+        for dest in destinations:
+            model.name_pattern_to_folder[pattern][dest] = int(
+                destinations[dest] * decay_factor
+            )
+
+
+def _should_sync(learning_dir: Path) -> bool:
+    """Check if model should be synced to disk."""
+    counter_path = learning_dir / INCREMENTAL_COUNTER_FILE
+    
+    if not counter_path.exists():
+        _reset_sync_counter(learning_dir, 1)
+        return False
+    
+    try:
+        with open(counter_path, 'r') as f:
+            data = json.load(f)
+            count = data.get('count', 0)
+        
+        # Increment
+        with open(counter_path, 'w') as f:
+            json.dump({'count': count + 1}, f)
+        
+        return count + 1 >= SYNC_FREQUENCY
+    
+    except Exception:
+        return False
+
+
+def _reset_sync_counter(learning_dir: Path, initial: int = 0):
+    """Reset sync counter."""
+    counter_path = learning_dir / INCREMENTAL_COUNTER_FILE
+    learning_dir.mkdir(parents=True, exist_ok=True)
+    
+    with open(counter_path, 'w') as f:
+        json.dump({'count': initial}, f)
+
+
+def sync_learning_data(learning_dir: Path = DEFAULT_LEARNING_DIR) -> bool:
+    """
+    Manually sync learning data to disk.
+    
+    Returns:
+        True if successful
+    """
+    logger = logging.getLogger('FileOrganizer')
+    
+    try:
+        model = load_model(learning_dir)
+        if model:
+            save_model(model, learning_dir)
+            _reset_sync_counter(learning_dir)
+            logger.info("[LEARNING] Model synced to disk")
+            return True
+        return False
+    
+    except Exception as e:
+        logger.error(f"Failed to sync learning data: {e}")
         return False
 
 
