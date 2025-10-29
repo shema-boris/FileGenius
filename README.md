@@ -4,9 +4,9 @@ A privacy-first file organization tool that runs entirely on your local machine.
 
 ## 🎯 Project Overview
 
-**Current Status:** Phase 4 Complete 🧠✨
+**Current Status:** Phase 5 Complete 🧠🔄✨
 
-FileGenius is a personal AI assistant that helps organize files on your local machine automatically. Built with privacy as the top priority, all operations run locally.
+FileGenius is a self-learning personal AI assistant that continuously improves from your file organization patterns. Built with privacy as the top priority, all operations run locally with zero external dependencies.
 
 ### Core Principles
 
@@ -48,7 +48,7 @@ FileGenius is a personal AI assistant that helps organize files on your local ma
 - **Pattern Analysis:** Identify temporal patterns and file distribution
 - **Actionable Insights:** Get specific CLI commands to optimize your file organization
 
-### ✅ Phase 4 (Complete) - **NEW!** 🧠
+### ✅ Phase 4 (Complete) 🧠
 - **Adaptive Learning:** System learns from your organization habits automatically
 - **Confidence-Based Predictions:** Every suggestion includes confidence score (0-100%)
 - **Auto-Organize Mode:** Automatically organize files using learned patterns
@@ -56,6 +56,20 @@ FileGenius is a personal AI assistant that helps organize files on your local ma
 - **Explainable AI:** Every prediction includes the reason and data source
 - **100% Offline Learning:** All ML happens locally, zero external dependencies
 - **Model Persistence:** Save and reload learned preferences
+
+### ✅ Phase 5 (Complete) - **NEW!** 🧠🔄
+- **Continuous Learning:** Model updates automatically after every file operation
+- **Incremental Updates:** Learn from each action without full retraining
+- **Exponential Decay:** Recent patterns weighted more heavily (95% decay factor)
+- **Feedback Reinforcement:** System improves from user confirmations/undos
+- **Positive Feedback:** Reinforces correct predictions (+2 weight)
+- **Negative Feedback:** Penalizes wrong predictions (-1 weight, auto-records on undo)
+- **User Preferences:** Customizable settings (confidence thresholds, ignored folders, etc.)
+- **Interactive Preferences:** Manage settings with interactive CLI editor
+- **Learning Analytics:** Detailed insights on model accuracy and pattern strength
+- **Feedback Analytics:** Track correct/wrong predictions, identify weak patterns
+- **Auto-Sync:** Model syncs to disk every 5 operations (configurable)
+- **Privacy-Preserving:** All learning data stays local, fully transparent
 
 ---
 
@@ -143,6 +157,30 @@ python file_organizer.py /path/to/folder --auto --dry-run
 **13. Reset learning data (Phase 4):**
 ```bash
 python file_organizer.py --reset-learning
+```
+
+**14. Manage user preferences (Phase 5):**
+```bash
+python file_organizer.py --preferences
+# Interactive menu to customize settings
+```
+
+**15. View learning & feedback statistics (Phase 5):**
+```bash
+python file_organizer.py --stats
+# Shows learning accuracy, feedback data, and preferences
+```
+
+**16. Control feedback tracking (Phase 5):**
+```bash
+python file_organizer.py --feedback on   # Enable
+python file_organizer.py --feedback off  # Disable
+```
+
+**17. Full retrain without decay (Phase 5):**
+```bash
+python file_organizer.py --relearn
+# Retrain from scratch, useful after major habit changes
 ```
 
 ---
@@ -357,6 +395,67 @@ print(f"Trained on {stats['total_samples']} files")
 
 # Clear all learning data
 learn.clear_learning_data()
+```
+
+### Phase 5 APIs - Continuous Learning & Personalization
+
+```python
+import learning_engine as learn
+import feedback_manager as feedback
+import preference_manager as prefs
+
+# ---- Incremental Learning ----
+# Update model after single file operation
+file_meta = {
+    'file_name': 'invoice.pdf',
+    'file_type': 'documents',
+    'file_ext': '.pdf'
+}
+learn.update_model_incremental(file_meta, 'documents')
+
+# Manual sync to disk
+learn.sync_learning_data()
+
+# ---- Feedback System ----
+# Record positive feedback (correct prediction)
+feedback.record_positive_feedback('type', 'documents', 'documents')
+
+# Record negative feedback (wrong prediction)
+feedback.record_negative_feedback('ext', '.zip', 'others')
+
+# Auto-record feedback on undo
+feedback.record_undo_operation('operation_id_123')
+
+# Get feedback statistics
+stats = feedback.get_feedback_stats()
+print(f"Overall accuracy: {stats['overall_accuracy']:.1f}%")
+print(f"Strongest pattern: {stats['strongest_pattern']['pattern']}")
+
+# Enable/disable feedback
+feedback.enable_feedback()
+feedback.disable_feedback()
+
+# ---- User Preferences ----
+# Load preferences
+user_prefs = prefs.load_preferences()
+
+# Get specific setting
+confidence_bias = user_prefs.get('learning.confidence_bias')
+auto_threshold = user_prefs.get('learning.auto_threshold')
+
+# Set preference
+user_prefs.set('learning.confidence_bias', 1.2)
+prefs.save_preferences(user_prefs)
+
+# Interactive editor
+prefs.edit_preferences_interactive()
+
+# Check settings
+if prefs.is_incremental_learning_enabled():
+    print("Incremental learning is ON")
+
+if prefs.should_ask_for_confirmation(confidence=0.65):
+    print("Will ask user for confirmation")
 ```
 
 ---
