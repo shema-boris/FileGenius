@@ -21,6 +21,8 @@ import database_manager as db
 import suggestion_engine as suggest
 import learning_engine as learn
 import feedback_manager as feedback
+import maintenance_engine as maintenance
+import diagnostic_engine as diagnostic
 
 
 # ============================================================================
@@ -56,12 +58,16 @@ def generate_report_data(db_path: str = 'file_organizer.db') -> Dict[str, Any]:
     learning_analytics = _get_learning_analytics()
     feedback_analytics = _get_feedback_analytics()
     
+    # Phase 6: Get diagnostics and maintenance analytics
+    diagnostics = _get_diagnostic_analytics(db_path)
+    maintenance_history = _get_maintenance_analytics()
+    
     # Build report
     report = {
         'report_metadata': {
             'generated_at': datetime.now().isoformat(),
             'database_path': db_path,
-            'report_version': '5.0'  # Updated to Phase 5
+            'report_version': '6.0'  # Updated to Phase 6
         },
         'summary': {
             'total_files': stats['total_files'],
@@ -100,7 +106,10 @@ def generate_report_data(db_path: str = 'file_organizer.db') -> Dict[str, Any]:
         ],
         # Phase 5: Learning and feedback insights
         'learning_insights': learning_analytics,
-        'feedback_insights': feedback_analytics
+        'feedback_insights': feedback_analytics,
+        # Phase 6: Diagnostics and maintenance
+        'system_diagnostics': diagnostics,
+        'maintenance_history': maintenance_history
     }
     
     return report
@@ -355,6 +364,94 @@ def export_to_csv(report_data: Dict[str, Any], output_path: str) -> bool:
 
 
 # ============================================================================
+# PHASE 6: DIAGNOSTICS & MAINTENANCE ANALYTICS
+# ============================================================================
+
+def _get_diagnostic_analytics(db_path: str = 'file_organizer.db') -> Dict[str, Any]:
+    """
+    Get system diagnostics for report.
+    
+    Returns:
+        Dictionary with diagnostic results
+    """
+    try:
+        # Run lightweight diagnostics
+        model_diag = diagnostic.diagnose_model_confidence()
+        feedback_diag = diagnostic.diagnose_feedback_accuracy()
+        db_diag = diagnostic.diagnose_database(db_path)
+        storage_diag = diagnostic.diagnose_storage()
+        
+        # Determine overall health
+        critical_count = sum([
+            1 for d in [model_diag, feedback_diag, db_diag]
+            if d.get('status') in ['critical', 'poor', 'corrupted']
+        ])
+        
+        overall = 'healthy'
+        if critical_count > 0:
+            overall = 'critical'
+        elif any(d.get('status') == 'fair' for d in [model_diag, feedback_diag]):
+            overall = 'needs_attention'
+        
+        return {
+            'enabled': True,
+            'overall_health': overall,
+            'model': {
+                'status': model_diag['status'],
+                'avg_confidence': model_diag['avg_confidence'],
+                'patterns_count': len(model_diag['patterns'])
+            },
+            'feedback': {
+                'status': feedback_diag['status'],
+                'overall_accuracy': feedback_diag.get('overall_accuracy', 0),
+                'total_feedback': feedback_diag['total_feedback']
+            },
+            'database': {
+                'status': db_diag['status'],
+                'size_mb': db_diag['size_mb'],
+                'integrity': db_diag['integrity_check']
+            },
+            'storage': {
+                'status': storage_diag['status'],
+                'total_size_mb': storage_diag['total_size_mb']
+            }
+        }
+    
+    except Exception as e:
+        return {
+            'enabled': False,
+            'error': str(e)
+        }
+
+
+def _get_maintenance_analytics() -> Dict[str, Any]:
+    """
+    Get maintenance history for report.
+    
+    Returns:
+        Dictionary with maintenance statistics
+    """
+    try:
+        mlog = maintenance.MaintenanceLog()
+        
+        recent_ops = mlog.get_operations_since(hours=24)
+        
+        return {
+            'enabled': True,
+            'last_maintenance': mlog.get_last_maintenance(),
+            'stats': mlog.log['stats'],
+            'recent_operations': len(recent_ops),
+            'operations_last_24h': recent_ops
+        }
+    
+    except Exception as e:
+        return {
+            'enabled': False,
+            'error': str(e)
+        }
+
+
+# ============================================================================
 # CONSOLE REPORTING
 # ============================================================================
 
@@ -471,6 +568,42 @@ def print_summary_report(report_data: Dict[str, Any]):
         logger.info(f"Total Feedback Events: {feedback_insights['total_feedback']}")
         logger.info(f"  ✓ Correct: {feedback_insights['total_correct']}")
         logger.info(f"  ✗ Wrong: {feedback_insights['total_wrong']}")
+        logger.info("")
+    
+    # Phase 6: System Diagnostics
+    diagnostics = report_data.get('system_diagnostics', {})
+    if diagnostics.get('enabled'):
+        logger.info("🔍 SYSTEM HEALTH")
+        logger.info("-" * 70)
+        
+        health_emoji = {'healthy': '✅', 'needs_attention': '⚠️', 'critical': '🔴'}
+        emoji = health_emoji.get(diagnostics['overall_health'], '❓')
+        logger.info(f"{emoji} Overall Health: {diagnostics['overall_health'].upper()}")
+        
+        model_status = diagnostics['model']
+        logger.info(f"  Model: {model_status['status']} ({model_status['avg_confidence']:.1f}% avg confidence)")
+        
+        db_status = diagnostics['database']
+        logger.info(f"  Database: {db_status['status']} ({db_status['size_mb']:.2f} MB, {db_status['integrity']})")
+        
+        logger.info("")
+    
+    # Phase 6: Maintenance History
+    maintenance_history = report_data.get('maintenance_history', {})
+    if maintenance_history.get('enabled'):
+        logger.info("🔧 MAINTENANCE")
+        logger.info("-" * 70)
+        
+        last_maint = maintenance_history.get('last_maintenance')
+        if last_maint:
+            logger.info(f"Last Maintenance: {last_maint[:19]}")
+        else:
+            logger.info("Last Maintenance: Never")
+        
+        stats = maintenance_history.get('stats', {})
+        logger.info(f"Total Retrains: {stats.get('total_retrains', 0)}")
+        logger.info(f"Total Optimizations: {stats.get('total_optimizations', 0)}")
+        logger.info(f"Patterns Pruned: {stats.get('patterns_pruned', 0)}")
         logger.info("")
     
     # Suggestions
