@@ -57,7 +57,7 @@ FileGenius is a self-learning personal AI assistant that continuously improves f
 - **100% Offline Learning:** All ML happens locally, zero external dependencies
 - **Model Persistence:** Save and reload learned preferences
 
-### ✅ Phase 5 (Complete) - **NEW!** 🧠🔄
+### ✅ Phase 5 (Complete) 🧠🔄
 - **Continuous Learning:** Model updates automatically after every file operation
 - **Incremental Updates:** Learn from each action without full retraining
 - **Exponential Decay:** Recent patterns weighted more heavily (95% decay factor)
@@ -70,6 +70,20 @@ FileGenius is a self-learning personal AI assistant that continuously improves f
 - **Feedback Analytics:** Track correct/wrong predictions, identify weak patterns
 - **Auto-Sync:** Model syncs to disk every 5 operations (configurable)
 - **Privacy-Preserving:** All learning data stays local, fully transparent
+
+### ✅ Phase 6 (Complete) - **NEW!** 🤖🔧
+- **Autonomous Maintenance:** Self-monitors and auto-organizes files continuously
+- **Predictive Maintenance:** Auto-retrains when confidence drops below thresholds
+- **System Diagnostics:** Comprehensive health checks for model, database, and storage
+- **Auto-Optimization:** Prunes weak patterns, optimizes database, manages storage
+- **Pattern Pruning:** Removes unreliable patterns (< 5 samples) automatically
+- **Database Optimization:** VACUUM, REINDEX, and ANALYZE for peak performance
+- **Conflict Detection:** Identifies ambiguous patterns that confuse the model
+- **Maintenance Logging:** Tracks all maintenance operations with full history
+- **Scheduled Maintenance:** Run maintenance tasks at specified intervals
+- **Autonomous Mode:** Monitor directories and organize new files automatically
+- **Health Analytics:** Real-time system health metrics in reports
+- **Actionable Recommendations:** AI suggests specific optimization steps
 
 ---
 
@@ -181,6 +195,30 @@ python file_organizer.py --feedback off  # Disable
 ```bash
 python file_organizer.py --relearn
 # Retrain from scratch, useful after major habit changes
+```
+
+**18. Run system diagnostics (Phase 6):**
+```bash
+python file_organizer.py --diagnose
+# Comprehensive health check with actionable recommendations
+```
+
+**19. Optimize system manually (Phase 6):**
+```bash
+python file_organizer.py --optimize
+# Prune weak patterns and optimize database
+```
+
+**20. Autonomous monitoring mode (Phase 6):**
+```bash
+python file_organizer.py /path/to/monitor --auto-maintain
+# Continuously monitor and organize new files
+```
+
+**21. Scheduled maintenance (Phase 6):**
+```bash
+python file_organizer.py --schedule 30
+# Run full maintenance every 30 minutes
 ```
 
 ---
@@ -456,6 +494,81 @@ if prefs.is_incremental_learning_enabled():
 
 if prefs.should_ask_for_confirmation(confidence=0.65):
     print("Will ask user for confirmation")
+```
+
+### Phase 6 APIs - Autonomous Maintenance & Diagnostics
+
+```python
+import maintenance_engine as maintenance
+import diagnostic_engine as diagnostic
+
+# ---- System Diagnostics ----
+# Run full system diagnosis
+report = diagnostic.run_full_diagnosis('file_organizer.db')
+print(f"Overall health: {report['overall_health']}")
+
+# Model confidence diagnostics
+model_diag = diagnostic.diagnose_model_confidence()
+print(f"Avg confidence: {model_diag['avg_confidence']:.1f}%")
+
+# Feedback accuracy diagnostics
+feedback_diag = diagnostic.diagnose_feedback_accuracy()
+print(f"Overall accuracy: {feedback_diag['overall_accuracy']:.1f}%")
+
+# Database health check
+db_diag = diagnostic.diagnose_database('file_organizer.db')
+print(f"Database status: {db_diag['status']}")
+print(f"Integrity: {db_diag['integrity_check']}")
+
+# Detect pattern conflicts
+conflicts = diagnostic.detect_pattern_conflicts()
+for conflict in conflicts:
+    print(f"Conflict: {conflict['pattern']} → {conflict['primary_dest']} vs {conflict['conflict_dest']}")
+
+# ---- Predictive Maintenance ----
+# Check model health
+health = maintenance.check_model_health()
+print(f"Status: {health['overall_status']}")
+print(f"Issues: {len(health['issues'])}")
+
+# Auto-retrain if needed
+retrained = maintenance.auto_retrain_if_needed()
+if retrained:
+    print("Model was retrained")
+
+# Prune weak patterns
+pruned = maintenance.prune_weak_patterns(min_samples=5)
+print(f"Pruned {pruned} weak patterns")
+
+# Optimize database
+optimized = maintenance.optimize_database('file_organizer.db')
+print(f"Database optimized: {optimized}")
+
+# Run full maintenance
+results = maintenance.run_full_maintenance('file_organizer.db')
+print(f"Maintenance complete: {len(results['operations'])} operations")
+
+# ---- Maintenance Logging ----
+# Access maintenance log
+mlog = maintenance.MaintenanceLog()
+last_maint = mlog.get_last_maintenance()
+print(f"Last maintenance: {last_maint}")
+
+# Get recent operations
+recent_ops = mlog.get_operations_since(hours=24)
+print(f"Operations in last 24h: {len(recent_ops)}")
+
+# ---- Autonomous Mode ----
+# Monitor directory and auto-organize (blocking)
+from pathlib import Path
+results = maintenance.run_autonomous_mode(
+    source_dir=Path('/path/to/monitor'),
+    output_dir=Path('organized'),
+    dry_run=False,
+    max_operations=100
+)
+print(f"Processed {results['files_processed']} files")
+print(f"Moved: {results['files_moved']}, Skipped: {results['files_skipped']}")
 ```
 
 ---
