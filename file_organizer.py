@@ -34,6 +34,10 @@ import learning_engine as learn
 import feedback_manager as feedback
 import preference_manager as prefs
 
+# Import Phase 6 features
+import maintenance_engine as maintenance
+import diagnostic_engine as diagnostic
+
 
 # ============================================================================
 # CONFIGURATION
@@ -705,6 +709,32 @@ Examples:
         help='Display learning & feedback performance statistics'
     )
     
+    # Phase 6 arguments
+    parser.add_argument(
+        '--auto-maintain',
+        action='store_true',
+        help='Run autonomous monitoring and auto-organization mode'
+    )
+    
+    parser.add_argument(
+        '--diagnose',
+        action='store_true',
+        help='Run system health diagnostics and generate report'
+    )
+    
+    parser.add_argument(
+        '--optimize',
+        action='store_true',
+        help='Trigger manual optimization (prune patterns, optimize database)'
+    )
+    
+    parser.add_argument(
+        '--schedule',
+        metavar='MINUTES',
+        type=int,
+        help='Run maintenance tasks every N minutes (daemon mode)'
+    )
+    
     args = parser.parse_args()
     
     # Handle special commands (Phase 2, 3 & 4)
@@ -793,6 +823,79 @@ Examples:
             logger.error("Failed to retrain model")
         
         logger.info("=" * 70)
+        return
+    
+    # Phase 6: Diagnose system health
+    if args.diagnose:
+        logger = setup_logging()
+        
+        diag_report = diagnostic.run_full_diagnosis(args.db_path)
+        diagnostic.print_diagnosis_report(diag_report)
+        
+        return
+    
+    # Phase 6: Manual optimization
+    if args.optimize:
+        logger = setup_logging()
+        logger.info("=" * 70)
+        logger.info("SYSTEM OPTIMIZATION")
+        logger.info("=" * 70)
+        
+        # Prune weak patterns
+        pruned = maintenance.prune_weak_patterns()
+        logger.info(f"✓ Pruned {pruned} weak patterns")
+        
+        # Optimize database
+        optimized = maintenance.optimize_database(args.db_path)
+        if optimized:
+            logger.info("✓ Database optimized")
+        
+        logger.info("=" * 70)
+        return
+    
+    # Phase 6: Scheduled maintenance
+    if args.schedule:
+        logger = setup_logging()
+        logger.info("=" * 70)
+        logger.info(f"SCHEDULED MAINTENANCE (Every {args.schedule} minutes)")
+        logger.info("=" * 70)
+        logger.info("Press Ctrl+C to stop")
+        
+        try:
+            import time
+            while True:
+                logger.info(f"\n[{datetime.now().strftime('%H:%M:%S')}] Running maintenance...")
+                maintenance.run_full_maintenance(args.db_path)
+                logger.info(f"Next maintenance in {args.schedule} minutes\n")
+                time.sleep(args.schedule * 60)
+        except KeyboardInterrupt:
+            logger.info("\nScheduled maintenance stopped")
+        
+        return
+    
+    # Phase 6: Autonomous maintenance mode
+    if args.auto_maintain:
+        logger = setup_logging()
+        
+        if not args.source:
+            logger.error("Source directory required for autonomous mode")
+            logger.info("Usage: python file_organizer.py /path/to/folder --auto-maintain")
+            return
+        
+        source_path = Path(args.source)
+        if not source_path.exists():
+            logger.error(f"Source directory not found: {source_path}")
+            return
+        
+        # Run autonomous mode
+        dry_run = not args.no_dry_run
+        maintenance.run_autonomous_mode(
+            source_path,
+            Path(args.output),
+            args.db_path,
+            dry_run=dry_run
+        )
+        
         return
     
     # Phase 5: Stats (learning & feedback)
