@@ -38,6 +38,10 @@ import preference_manager as prefs
 import maintenance_engine as maintenance
 import diagnostic_engine as diagnostic
 
+# Import Phase 7 features
+import visual_dashboard as dashboard
+import insight_engine as insights
+
 
 # ============================================================================
 # CONFIGURATION
@@ -735,6 +739,43 @@ Examples:
         help='Run maintenance tasks every N minutes (daemon mode)'
     )
     
+    # Phase 7 arguments
+    parser.add_argument(
+        '--dashboard',
+        action='store_true',
+        help='Display interactive intelligence dashboard'
+    )
+    
+    parser.add_argument(
+        '--dashboard-compact',
+        action='store_true',
+        help='Display compact one-screen dashboard'
+    )
+    
+    parser.add_argument(
+        '--insights',
+        action='store_true',
+        help='Show smart insights and performance summary'
+    )
+    
+    parser.add_argument(
+        '--insights-weekly',
+        action='store_true',
+        help='Show weekly performance insights'
+    )
+    
+    parser.add_argument(
+        '--web',
+        action='store_true',
+        help='Launch local web dashboard (requires Flask)'
+    )
+    
+    parser.add_argument(
+        '--export-dashboard',
+        metavar='FILE',
+        help='Export dashboard to text file'
+    )
+    
     args = parser.parse_args()
     
     # Handle special commands (Phase 2, 3 & 4)
@@ -896,6 +937,52 @@ Examples:
             dry_run=dry_run
         )
         
+        return
+    
+    # Phase 7: Dashboard
+    if args.dashboard:
+        logger = setup_logging()
+        dashboard.display_dashboard(args.db_path)
+        return
+    
+    # Phase 7: Compact Dashboard
+    if args.dashboard_compact:
+        logger = setup_logging()
+        dashboard.display_compact_dashboard(args.db_path)
+        return
+    
+    # Phase 7: Smart Insights
+    if args.insights:
+        logger = setup_logging()
+        insights.print_smart_insights(args.db_path)
+        return
+    
+    # Phase 7: Weekly Insights
+    if args.insights_weekly:
+        logger = setup_logging()
+        insights.print_weekly_insights(args.db_path)
+        return
+    
+    # Phase 7: Export Dashboard
+    if args.export_dashboard:
+        logger = setup_logging()
+        success = dashboard.export_dashboard_text(args.export_dashboard, args.db_path)
+        if success:
+            logger.info(f"✓ Dashboard exported to: {args.export_dashboard}")
+        else:
+            logger.error("Failed to export dashboard")
+        return
+    
+    # Phase 7: Web Dashboard
+    if args.web:
+        logger = setup_logging()
+        logger.info("=" * 70)
+        logger.info("WEB DASHBOARD")
+        logger.info("=" * 70)
+        logger.warning("Web dashboard requires Flask (optional dependency)")
+        logger.info("Install with: pip install flask")
+        logger.info("Then implement web_dashboard.py for web interface")
+        logger.info("=" * 70)
         return
     
     # Phase 5: Stats (learning & feedback)
