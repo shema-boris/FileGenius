@@ -4,9 +4,9 @@ A privacy-first file organization tool that runs entirely on your local machine.
 
 ## 🎯 Project Overview
 
-**Current Status:** Phase 5 Complete 🧠🔄✨
+**Current Status:** Phase 7 Complete 📊🎨✨
 
-FileGenius is a self-learning personal AI assistant that continuously improves from your file organization patterns. Built with privacy as the top priority, all operations run locally with zero external dependencies.
+FileGenius is a self-learning personal AI assistant with full intelligence visibility. It continuously improves from your file organization patterns while providing beautiful visualizations and actionable insights. Built with privacy as the top priority, all operations run locally with zero external dependencies.
 
 ### Core Principles
 
@@ -71,7 +71,7 @@ FileGenius is a self-learning personal AI assistant that continuously improves f
 - **Auto-Sync:** Model syncs to disk every 5 operations (configurable)
 - **Privacy-Preserving:** All learning data stays local, fully transparent
 
-### ✅ Phase 6 (Complete) - **NEW!** 🤖🔧
+### ✅ Phase 6 (Complete) 🤖🔧
 - **Autonomous Maintenance:** Self-monitors and auto-organizes files continuously
 - **Predictive Maintenance:** Auto-retrains when confidence drops below thresholds
 - **System Diagnostics:** Comprehensive health checks for model, database, and storage
@@ -84,6 +84,21 @@ FileGenius is a self-learning personal AI assistant that continuously improves f
 - **Autonomous Mode:** Monitor directories and organize new files automatically
 - **Health Analytics:** Real-time system health metrics in reports
 - **Actionable Recommendations:** AI suggests specific optimization steps
+
+### ✅ Phase 7 (Complete) - **NEW!** 📊🎨
+- **ASCII CLI Dashboard:** Beautiful terminal-based visualizations with zero dependencies
+- **Smart Insights:** Natural-language performance summaries and trends
+- **Confidence Distribution:** Visual histograms showing prediction confidence levels
+- **Feedback Analytics:** Pattern-level accuracy charts and metrics
+- **File Distribution Charts:** Bar charts showing organized files by category
+- **Maintenance History:** Visual timeline of system optimization events
+- **System Health Status:** Real-time health gauges for all components
+- **Compact Dashboard:** Single-screen quick status overview
+- **Weekly Summaries:** Performance highlights from the past 7 days
+- **Predictive Insights:** AI forecasts future maintenance needs
+- **Trend Detection:** Identifies improving/declining metrics automatically
+- **Dashboard Export:** Save reports to text files for archiving
+- **100% Offline Visualization:** All charts rendered with ASCII art, no external libs
 
 ---
 
@@ -219,6 +234,36 @@ python file_organizer.py /path/to/monitor --auto-maintain
 ```bash
 python file_organizer.py --schedule 30
 # Run full maintenance every 30 minutes
+```
+
+**22. View intelligence dashboard (Phase 7):**
+```bash
+python file_organizer.py --dashboard
+# Full dashboard with charts and visualizations
+```
+
+**23. Quick dashboard view (Phase 7):**
+```bash
+python file_organizer.py --dashboard-compact
+# Single-screen status overview
+```
+
+**24. Get smart insights (Phase 7):**
+```bash
+python file_organizer.py --insights
+# Comprehensive analysis with trends and predictions
+```
+
+**25. Weekly performance summary (Phase 7):**
+```bash
+python file_organizer.py --insights-weekly
+# Performance highlights from the past 7 days
+```
+
+**26. Export dashboard (Phase 7):**
+```bash
+python file_organizer.py --export-dashboard report.txt
+# Save dashboard to text file
 ```
 
 ---
