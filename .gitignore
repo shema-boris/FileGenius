@@ -22,6 +22,9 @@ user_preferences.json
 incremental_counter.json
 sync_log.json
 
+# Phase 6: Maintenance and diagnostics
+maintenance_log.json
+
 # Python
 __pycache__/
 *.py[cod]
